@@ -56,7 +56,13 @@ export function SignInForm() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push(
+        result.role === "master_admin"
+          ? "/owner"
+          : result.role === "manager"
+            ? "/manager"
+            : "/dashboard"
+      );
     } catch (error) {
       setErrors({
         general: error instanceof Error ? error.message : "Signin failed",

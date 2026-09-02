@@ -22,9 +22,7 @@ export async function POST(request: Request) {
       email: formData.get("email"),
       password: formData.get("password"),
       gender: formData.get("gender"),
-      level: formData.get("level")
-        ? parseInt(formData.get("level") as string)
-        : undefined,
+      level: formData.get("level") ? String(formData.get("level")) : undefined,
       department: formData.get("department"),
       faculty: formData.get("faculty"),
       age: formData.get("age")
@@ -34,7 +32,7 @@ export async function POST(request: Request) {
       matric_number: formData.get("matric_number"),
       guardian_name: formData.get("guardian_name"),
       guardian_phone: formData.get("guardian_phone"),
-      admission_letter: formData.get("admission_letter") as File | null,
+      admission_letter: formData.get("admission_letter") || undefined,
     };
 
     const validation = validateSignUp(data);
@@ -82,7 +80,7 @@ export async function POST(request: Request) {
       await supabase.auth.admin.createUser({
         email,
         password,
-        email_confirm: false,
+        email_confirm: true,
       });
 
     if (authError || !authData.user) {

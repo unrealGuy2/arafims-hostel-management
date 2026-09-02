@@ -1,9 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { validateSignIn } from "@/lib/utils/validation";
 import { NextResponse } from "next/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +21,19 @@ export async function POST(request: Request) {
     }
 
     const { email, password } = validation.data;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const cookieStore = await cookies();
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        },
+      },
+    });
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -34,8 +47,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: role } = await supabase.rpc("current_user_role");
+
     return NextResponse.json(
-      { message: "Signin successful", user: data.user },
+      { message: "Signin successful", user: data.user, role: role ?? "student" },
       { status: 200 }
     );
   } catch (error) {

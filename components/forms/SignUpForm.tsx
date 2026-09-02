@@ -67,7 +67,7 @@ export function SignUpForm() {
         matric_number: formData.get("matric_number"),
         guardian_name: formData.get("guardian_name"),
         guardian_phone: formData.get("guardian_phone"),
-        admission_letter: admissionFile,
+        admission_letter: level === "100" ? admissionFile : undefined,
       };
 
       const validation = validateSignUp(data);
@@ -274,9 +274,11 @@ export function SignUpForm() {
           onChange={(e) => {
             if (e.target.files?.[0]) {
               setAdmissionFile(e.target.files[0]);
+            } else {
+              setAdmissionFile(null);
             }
           }}
-          required
+          required={validateAdmissionLetterRequired(level)}
         />
       )}
 
