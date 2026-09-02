@@ -31,11 +31,14 @@ export default async function DashboardPage() {
   const { data: reservations } = await supabase
     .from("reservations")
     .select(
-      "id, status, created_at, room_id, room_price, room:room_id(room_number, room_type, capacity, price, hostel:hostel_id(name, slug))"
+      "id, status, created_at, room_id, room_price, room:room_id(room_number, room_type, capacity, price, hostel:hostel_id(name, slug)), payment:payments(id, payment_status, amount_expected, amount_paid, payment_proof_path, payment_reference, submitted_at, rejection_reason, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number))"
     )
     .eq("student_profile_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(3);
+  const hasActiveReservation = (reservations ?? []).some(
+    (reservation) => reservation.status === "pending" || reservation.status === "approved"
+  );
 
   async function handleSignOut() {
     "use server";
@@ -138,12 +141,14 @@ export default async function DashboardPage() {
           <div className="mt-8 p-6 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg">
             <div className="flex items-center justify-between gap-4 mb-4">
               <h2 className="text-xl font-bold font-display">Reservation Status</h2>
-              <Link
-                href="/dashboard/reservations"
-                className="inline-flex items-center rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f] transition-colors hover:bg-[#1ec98c]"
-              >
-                Apply for a Room
-              </Link>
+              {!hasActiveReservation && (
+                <Link
+                  href="/dashboard/reservations"
+                  className="inline-flex items-center rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f] transition-colors hover:bg-[#1ec98c]"
+                >
+                  Apply for a Room
+                </Link>
+              )}
             </div>
 
             {reservations && reservations.length > 0 ? (
@@ -176,6 +181,68 @@ export default async function DashboardPage() {
                         {room?.room_type} · ₦{reservation.room_price} · Capacity{" "}
                         {room?.capacity}
                       </p>
+                      {reservation.status === "approved" && (() => {
+                        const payment = Array.isArray(reservation.payment)
+                          ? reservation.payment[0]
+                          : reservation.payment;
+                        const account = payment
+                          ? Array.isArray(payment.payment_account)
+                            ? payment.payment_account[0]
+                            : payment.payment_account
+                          : null;
+                        const receipt = payment
+                          ? Array.isArray(payment.receipt)
+                            ? payment.receipt[0]
+                            : payment.receipt
+                          : null;
+                        if (!payment) return null;
+                        return (
+                          <div className="mt-4 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] p-4">
+                            <p className="font-semibold text-[#f5f5f5]">Accommodation Payment</p>
+                            <dl className="mt-3 grid gap-2 text-sm text-[#b8b8b8] sm:grid-cols-2">
+                              <div><dt className="text-[#888]">Amount to pay</dt><dd>₦{payment.amount_expected}</dd></div>
+                              <div><dt className="text-[#888]">Payment status</dt><dd>{payment.payment_status === "proof_submitted" ? "Awaiting verification" : payment.payment_status === "confirmed" ? "Payment Confirmed" : payment.payment_status}</dd></div>
+                              <div><dt className="text-[#888]">Bank</dt><dd>{account?.bank_name}</dd></div>
+                              <div><dt className="text-[#888]">Account name</dt><dd>{account?.account_name}</dd></div>
+                              <div><dt className="text-[#888]">Account number</dt><dd>{account?.account_number}</dd></div>
+                            </dl>
+                            {payment.payment_reference && (
+                              <p className="mt-2 text-sm text-[#b8b8b8]">
+                                Payment reference: {payment.payment_reference}
+                              </p>
+                            )}
+                            {payment.payment_status === "payment_pending" || payment.payment_status === "rejected" ? (
+                              <form action="/api/payments/proof" method="post" encType="multipart/form-data" className="mt-4 space-y-3">
+                                <input type="hidden" name="paymentId" value={payment.id} />
+                                <input required name="paymentProof" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm text-[#b8b8b8]" />
+                                <input name="paymentReference" placeholder="Payment reference (optional)" className="w-full rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#f5f5f5]" />
+                                {payment.payment_status === "rejected" && payment.rejection_reason && <p className="text-sm text-red-300">Rejected: {payment.rejection_reason}</p>}
+                                <button type="submit" className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]">Submit payment proof</button>
+                              </form>
+                            ) : payment.payment_status === "proof_submitted" ? (
+                              <p className="mt-4 text-sm text-[#f5d5a4]">Payment is only confirmed after manager verification.</p>
+                            ) : payment.payment_status === "confirmed" && receipt ? (
+                              <div className="mt-4 flex flex-wrap items-center gap-3">
+                                <p className="text-sm text-[#7ef1c6]">Payment Confirmed · Receipt {receipt.receipt_number}</p>
+                                <Link
+                                  href={`/api/payments/${payment.id}/receipt`}
+                                  target="_blank"
+                                  className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
+                                >
+                                  Download Official Receipt
+                                </Link>
+                                <Link
+                                  href={`/api/payments/${payment.id}/receipt`}
+                                  target="_blank"
+                                  className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]"
+                                >
+                                  Print Receipt
+                                </Link>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
