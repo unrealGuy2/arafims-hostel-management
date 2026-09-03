@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PasswordChangeForm } from "@/components/forms/PasswordChangeForm";
 import { getAuthorizationContext } from "@/lib/auth/authorization";
 
 export default async function OwnerPage() {
@@ -71,6 +72,7 @@ export default async function OwnerPage() {
             Export Approved Students
           </a>
         </div>
+        <PasswordChangeForm />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {summary.map(([label, value]) => (
             <div key={label} className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-5">

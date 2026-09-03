@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthorizationContext } from "@/lib/auth/authorization";
+import { PasswordChangeForm } from "@/components/forms/PasswordChangeForm";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-NG", {
@@ -265,6 +266,8 @@ export default async function ManagerPage({
             </div>
           )}
         </section>
+
+        <PasswordChangeForm />
 
         <div className="mt-8 space-y-6">
           {managerReservations.length === 0 ? (
