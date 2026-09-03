@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       matric_number: formData.get("matric_number"),
       guardian_name: formData.get("guardian_name"),
       guardian_phone: formData.get("guardian_phone"),
+      phone_number: formData.get("phone_number"),
       admission_letter: formData.get("admission_letter") || undefined,
     };
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       matric_number,
       guardian_name,
       guardian_phone,
+      phone_number,
       admission_letter,
     } = validation.data;
 
@@ -154,6 +156,7 @@ export async function POST(request: Request) {
         matric_number,
         guardian_name,
         guardian_phone,
+        phone_number,
         admission_letter_path: admissionLetterPath,
       });
 

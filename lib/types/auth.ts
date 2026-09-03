@@ -12,6 +12,7 @@ export interface StudentProfile {
   matric_number: string;
   guardian_name: string;
   guardian_phone: string;
+  phone_number: string;
   admission_letter_path: string | null;
   created_at: string;
   updated_at: string;
@@ -30,6 +31,7 @@ export interface SignUpFormData {
   matric_number: string;
   guardian_name: string;
   guardian_phone: string;
+  phone_number: string;
   admission_letter?: File;
 }
 

@@ -27,6 +27,7 @@ const SignUpSchema = z
     matric_number: z.string().min(1, "Matric number is required"),
     guardian_name: z.string().min(1, "Guardian name is required"),
     guardian_phone: z.string().min(10, "Valid phone number required"),
+    phone_number: z.string().min(10, "Valid phone number required"),
     admission_letter: z.instanceof(File).optional(),
   })
   .superRefine((data, ctx) => {

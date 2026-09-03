@@ -17,16 +17,24 @@ export default async function ManagerPage({
 }) {
   const context = await getAuthorizationContext();
 
-  if (!context || context.role !== "manager" || !context.assignedHostelId) {
+  if (!context || (context.role !== "manager" && context.role !== "master_admin")) {
     redirect("/signin");
   }
 
   const supabase = await createClient();
-  const { data: hostel } = await supabase
+  const params = (await searchParams) ?? {};
+  const selectedHostelId =
+    context.role === "manager"
+      ? context.assignedHostelId
+      : typeof params.hostelId === "string"
+        ? params.hostelId
+        : undefined;
+  const { data: hostels } = await supabase
     .from("hostels")
     .select("id, name")
-    .eq("id", context.assignedHostelId)
-    .single();
+    .order("name");
+  const hostel = (hostels ?? []).find((item) => item.id === selectedHostelId) ??
+    (context.role === "master_admin" ? hostels?.[0] : null);
 
   if (!hostel) {
     redirect("/signin");
@@ -34,7 +42,7 @@ export default async function ManagerPage({
 
   const { data: rooms } = await supabase
     .from("rooms")
-    .select("id")
+    .select("id, room_number, room_type, capacity")
     .eq("hostel_id", hostel.id);
   const roomIds = (rooms ?? []).map((room) => room.id);
 
@@ -42,16 +50,47 @@ export default async function ManagerPage({
     ? await supabase
         .from("reservations")
         .select(
-          "id, status, room_price, created_at, decision_reason, student_profiles(full_name, email, matric_number, gender, level, department, faculty, previous_hostel), rooms(room_number, room_type, capacity), payments(id, amount_expected, payment_status, payment_reference, submitted_at, payment_proof_path, rejection_reason)"
+          "id, status, room_price, created_at, decision_reason, student_profiles(full_name, email, phone_number, matric_number, gender, level, department, faculty, previous_hostel), rooms(room_number, room_type, capacity), payments(id, amount_expected, payment_status, payment_reference, submitted_at, payment_proof_path, rejection_reason)"
         )
         .in("room_id", roomIds)
         .order("created_at", { ascending: false })
     : { data: [] };
   const managerReservations = reservations ?? [];
-  const params = (await searchParams) ?? {};
   const result = typeof params.result === "string" ? params.result : undefined;
   const paymentResult =
     typeof params.paymentResult === "string" ? params.paymentResult : undefined;
+  const bedspaceResult =
+    typeof params.bedspaceResult === "string" ? params.bedspaceResult : undefined;
+  const searchQuery =
+    typeof params.bedspaceSearch === "string" ? params.bedspaceSearch.trim() : "";
+  const selectedBedspaceRoomId =
+    typeof params.bedspaceRoomId === "string" ? params.bedspaceRoomId : "";
+  const selectedBedspaceRoom = (rooms ?? []).find(
+    (room) => room.id === selectedBedspaceRoomId
+  );
+  const { data: bedspaceReservations } = roomIds.length
+    ? await supabase
+        .from("bedspace_pre_reservations")
+        .select(
+          "id, room_id, bedspace_number, student_name, student_phone, student_profile_id, status, rooms(room_number, room_type)"
+        )
+        .in("room_id", roomIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+  const filteredBedspaceReservations = (bedspaceReservations ?? []).filter((item) =>
+    searchQuery
+      ? item.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.student_phone.toLowerCase().includes(searchQuery.toLowerCase())
+      : true
+  );
+  const { data: searchedStudentProfiles } = searchQuery
+    ? await supabase.rpc("manager_search_student_profiles", { p_query: searchQuery })
+    : { data: [] };
+  const studentProfiles = (searchedStudentProfiles ?? []) as Array<{
+    id: string;
+    full_name: string;
+    phone_number: string | null;
+  }>;
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] px-4 py-12 text-[#f5f5f5] sm:px-6 lg:px-8">
@@ -101,6 +140,132 @@ export default async function ManagerPage({
           </div>
         )}
 
+        {context.role === "master_admin" && (
+          <form method="get" className="mt-8 flex flex-wrap items-end gap-3">
+            <label className="text-sm text-[#b8b8b8]">
+              Hostel
+              <select
+                name="hostelId"
+                defaultValue={hostel.id}
+                className="mt-1 block rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-[#f5f5f5]"
+              >
+                {(hostels ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <button className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]">
+              View hostel
+            </button>
+          </form>
+        )}
+
+        {bedspaceResult && (
+          <div className="mt-8 rounded-xl border border-[#10a574]/30 bg-[#10a574]/10 p-4 text-[#7ef1c6]">
+            Bedspace reservation updated.
+          </div>
+        )}
+
+        <section className="mt-8 rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
+          <h2 className="text-2xl font-bold font-display">Bedspace Reservations</h2>
+          <p className="mt-2 text-sm text-[#b8b8b8]">
+            Hold individual bedspaces for students reserved through the hostel.
+          </p>
+          <form method="get" className="mt-5 flex flex-wrap items-end gap-3">
+            {context.role === "manager" && <input type="hidden" name="hostelId" value={hostel.id} />}
+            <label className="text-sm text-[#b8b8b8]">
+              Room
+              <select
+                name="bedspaceRoomId"
+                defaultValue={selectedBedspaceRoomId}
+                className="mt-1 block rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-[#f5f5f5]"
+              >
+                <option value="">Select room</option>
+                {(rooms ?? []).map((room) => (
+                  <option key={room.id} value={room.id}>{room.room_number} · {room.room_type}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm text-[#b8b8b8]">
+              Search name or phone
+              <input
+                name="bedspaceSearch"
+                defaultValue={searchQuery}
+                className="mt-1 block rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-[#f5f5f5]"
+              />
+            </label>
+            <button className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]">
+              Search
+            </button>
+          </form>
+
+          {selectedBedspaceRoom && (
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: selectedBedspaceRoom.capacity }, (_, index) => {
+                const number = index + 1;
+                const hold = (bedspaceReservations ?? []).find(
+                  (item) =>
+                    item.room_id === selectedBedspaceRoom.id &&
+                    item.bedspace_number === number &&
+                    item.status !== "released"
+                );
+                return (
+                  <div key={number} className="rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] p-3">
+                    <p className="font-semibold">Bedspace {number}</p>
+                    {hold ? (
+                      <>
+                        <p className="mt-1 text-sm text-[#f5d5a4]">{hold.status}</p>
+                        <p className="text-sm text-[#b8b8b8]">{hold.student_name}</p>
+                        <p className="text-sm text-[#b8b8b8]">{hold.student_phone}</p>
+                        <form action={`/api/manager/bedspace-pre-reservations/${hold.id}`} method="post" className="mt-3">
+                          <input type="hidden" name="action" value="release" />
+                          <button className="rounded-lg border border-red-400/40 px-3 py-2 text-xs text-red-200">Release</button>
+                        </form>
+                      </>
+                    ) : (
+                      <form action="/api/manager/bedspace-pre-reservations" method="post" className="mt-3 space-y-2">
+                        <input type="hidden" name="roomId" value={selectedBedspaceRoom.id} />
+                        <input type="hidden" name="bedspaceNumber" value={number} />
+                        <input required name="studentName" placeholder="Student name" className="w-full rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#f5f5f5]" />
+                        <input required name="studentPhone" placeholder="Phone number" className="w-full rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#f5f5f5]" />
+                        <button className="rounded-lg bg-[#10a574] px-3 py-2 text-xs font-semibold text-[#0f0f0f]">Pre-reserve</button>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {filteredBedspaceReservations.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <h3 className="font-semibold">Existing pre-reservations</h3>
+              {filteredBedspaceReservations.map((hold) => (
+                <div key={hold.id} className="rounded-lg border border-[#2a2a2a] p-3 text-sm">
+                  <p>{hold.student_name} · {hold.student_phone}</p>
+                  <p className="text-[#b8b8b8]">
+                    {(Array.isArray(hold.rooms) ? hold.rooms[0] : hold.rooms)?.room_number} · Bedspace {hold.bedspace_number} · {hold.status}
+                  </p>
+                  {!hold.student_profile_id && studentProfiles && studentProfiles.length > 0 && (
+                    <form action={`/api/manager/bedspace-pre-reservations/${hold.id}`} method="post" className="mt-2 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="action" value="link" />
+                      <label className="text-xs text-[#b8b8b8]">
+                        Link student
+                        <select name="studentProfileId" required className="mt-1 block rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-2 py-1 text-[#f5f5f5]">
+                          {studentProfiles.map((profile) => (
+                            <option key={profile.id} value={profile.id}>{profile.full_name} · {profile.phone_number}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <button className="rounded-lg border border-[#10a574]/40 px-3 py-2 text-xs text-[#7ef1c6]">Link</button>
+                    </form>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <div className="mt-8 space-y-6">
           {managerReservations.length === 0 ? (
             <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 text-[#b8b8b8]">
@@ -134,6 +299,7 @@ export default async function ManagerPage({
                   </div>
                   <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt className="text-[#888]">Matric number</dt><dd>{student?.matric_number}</dd></div>
+                    <div><dt className="text-[#888]">Phone number</dt><dd>{student?.phone_number}</dd></div>
                     <div><dt className="text-[#888]">Gender</dt><dd>{student?.gender}</dd></div>
                     <div><dt className="text-[#888]">Level</dt><dd>{student?.level}</dd></div>
                     <div><dt className="text-[#888]">Department</dt><dd>{student?.department}</dd></div>

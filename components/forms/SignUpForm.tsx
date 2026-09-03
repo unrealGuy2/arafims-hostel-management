@@ -30,6 +30,7 @@ interface SignUpFormErrors {
   department?: string;
   faculty?: string;
   age?: string;
+  phone_number?: string;
   previous_hostel?: string;
   matric_number?: string;
   guardian_name?: string;
@@ -67,6 +68,7 @@ export function SignUpForm() {
         matric_number: formData.get("matric_number"),
         guardian_name: formData.get("guardian_name"),
         guardian_phone: formData.get("guardian_phone"),
+        phone_number: formData.get("phone_number"),
         admission_letter: level === "100" ? admissionFile : undefined,
       };
 
@@ -95,6 +97,7 @@ export function SignUpForm() {
       submitFormData.append("matric_number", validation.data.matric_number);
       submitFormData.append("guardian_name", validation.data.guardian_name);
       submitFormData.append("guardian_phone", validation.data.guardian_phone);
+      submitFormData.append("phone_number", validation.data.phone_number);
       if (validation.data.admission_letter) {
         submitFormData.append(
           "admission_letter",
@@ -262,6 +265,15 @@ export function SignUpForm() {
           required
         />
       </div>
+
+      <FormInput
+        label="Phone Number"
+        name="phone_number"
+        type="tel"
+        placeholder="+234 123 456 7890"
+        error={errors.phone_number}
+        required
+      />
 
       {validateAdmissionLetterRequired(level) && (
         <FormFileInput

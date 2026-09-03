@@ -157,12 +157,14 @@ export default async function ReservationsPage({
       {
         room_id: string;
         occupied_count: number;
+        pre_reserved_count: number;
         available_count: number;
       }
     >(
       ((availabilityRows ?? []) as Array<{
         room_id: string;
         occupied_count: number;
+        pre_reserved_count: number;
         available_count: number;
       }>).map((entry) => [entry.room_id, entry])
     );
@@ -176,6 +178,7 @@ export default async function ReservationsPage({
       return {
         ...room,
         occupied,
+        preReserved: availability?.pre_reserved_count ?? 0,
         available,
         status,
       };
@@ -318,6 +321,7 @@ export default async function ReservationsPage({
                     <p>Capacity: {room.capacity}</p>
                     <p>Price: {formatCurrency(room.price)}</p>
                     <p>Available: {room.available}</p>
+                    <p>Pre-reserved: {room.preReserved}</p>
                     <p>
                       Gender: {room.gender_restriction === "ANY" ? "Open" : room.gender_restriction}
                     </p>
