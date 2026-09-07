@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormInput } from "./FormInput";
 import { FormSelect } from "./FormSelect";
 import { FormFileInput } from "./FormFileInput";
-import { validateSignUp, validateAdmissionLetterRequired } from "@/lib/utils/validation";
+import {
+  validateSignUp,
+  validateAdmissionLetterRequired,
+  validateStudentDocument,
+} from "@/lib/utils/validation";
 
 const LEVELS = [
   { value: "100", label: "100" },
@@ -21,10 +25,21 @@ const GENDERS = [
   { value: "FEMALE", label: "Female" },
 ];
 
+const STUDENT_TYPES = [
+  { value: "new", label: "New Student" },
+  { value: "returning", label: "Returning Student" },
+];
+
+function getFormFile(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return value instanceof File && value.size > 0 ? value : undefined;
+}
+
 interface SignUpFormErrors {
   full_name?: string;
   email?: string;
   password?: string;
+  student_type?: string;
   gender?: string;
   level?: string;
   department?: string;
@@ -36,6 +51,8 @@ interface SignUpFormErrors {
   guardian_name?: string;
   guardian_phone?: string;
   admission_letter?: string;
+  passport_photo?: string;
+  school_id?: string;
   general?: string;
 }
 
@@ -43,6 +60,7 @@ export function SignUpForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<SignUpFormErrors>({});
+  const [studentType, setStudentType] = useState("");
   const [level, setLevel] = useState("");
   const [admissionFile, setAdmissionFile] = useState<File | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
@@ -59,6 +77,7 @@ export function SignUpForm() {
         full_name: formData.get("full_name"),
         email: formData.get("email"),
         password: formData.get("password"),
+        student_type: formData.get("student_type"),
         gender: formData.get("gender"),
         level: level,
         department: formData.get("department"),
@@ -69,6 +88,8 @@ export function SignUpForm() {
         guardian_name: formData.get("guardian_name"),
         guardian_phone: formData.get("guardian_phone"),
         phone_number: formData.get("phone_number"),
+        passport_photo: getFormFile(formData, "passport_photo"),
+        school_id: getFormFile(formData, "school_id"),
         admission_letter: level === "100" ? admissionFile : undefined,
       };
 
@@ -84,10 +105,33 @@ export function SignUpForm() {
         return;
       }
 
+      const passportValidation = await validateStudentDocument(
+        validation.data.passport_photo,
+        "passport_photo"
+      );
+      if (!passportValidation.valid) {
+        setErrors({ passport_photo: passportValidation.message });
+        setLoading(false);
+        return;
+      }
+
+      if (validation.data.school_id) {
+        const schoolIdValidation = await validateStudentDocument(
+          validation.data.school_id,
+          "school_id"
+        );
+        if (!schoolIdValidation.valid) {
+          setErrors({ school_id: schoolIdValidation.message });
+          setLoading(false);
+          return;
+        }
+      }
+
       const submitFormData = new FormData();
       submitFormData.append("full_name", validation.data.full_name);
       submitFormData.append("email", validation.data.email);
       submitFormData.append("password", validation.data.password);
+      submitFormData.append("student_type", validation.data.student_type);
       submitFormData.append("gender", validation.data.gender);
       submitFormData.append("level", validation.data.level.toString());
       submitFormData.append("department", validation.data.department);
@@ -98,6 +142,10 @@ export function SignUpForm() {
       submitFormData.append("guardian_name", validation.data.guardian_name);
       submitFormData.append("guardian_phone", validation.data.guardian_phone);
       submitFormData.append("phone_number", validation.data.phone_number);
+      submitFormData.append("passport_photo", validation.data.passport_photo);
+      if (validation.data.school_id) {
+        submitFormData.append("school_id", validation.data.school_id);
+      }
       if (validation.data.admission_letter) {
         submitFormData.append(
           "admission_letter",
@@ -136,6 +184,19 @@ export function SignUpForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <FormSelect
+        label="Student Type"
+        name="student_type"
+        options={STUDENT_TYPES}
+        error={errors.student_type}
+        placeholder="Select student type"
+        value={studentType}
+        onChange={(e) => setStudentType(e.target.value)}
+        required
+      />
+
+      {studentType && (
+        <>
       {errors.general && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
           {errors.general}
@@ -153,7 +214,6 @@ export function SignUpForm() {
           label="Full Name"
           name="full_name"
           type="text"
-          placeholder="John Doe"
           error={errors.full_name}
           required
         />
@@ -161,7 +221,6 @@ export function SignUpForm() {
           label="Email"
           name="email"
           type="email"
-          placeholder="john@example.com"
           error={errors.email}
           required
         />
@@ -171,7 +230,6 @@ export function SignUpForm() {
         label="Password"
         name="password"
         type="password"
-        placeholder="••••••••"
         error={errors.password}
         helperText="At least 8 characters with uppercase, lowercase, and number"
         required
@@ -203,7 +261,6 @@ export function SignUpForm() {
           label="Department"
           name="department"
           type="text"
-          placeholder="e.g., Computer Science"
           error={errors.department}
           required
         />
@@ -211,7 +268,6 @@ export function SignUpForm() {
           label="Faculty"
           name="faculty"
           type="text"
-          placeholder="e.g., Science"
           error={errors.faculty}
           required
         />
@@ -222,7 +278,6 @@ export function SignUpForm() {
           label="Age"
           name="age"
           type="number"
-          placeholder="18"
           min="15"
           max="80"
           error={errors.age}
@@ -232,7 +287,6 @@ export function SignUpForm() {
           label="Matric Number"
           name="matric_number"
           type="text"
-          placeholder="e.g., UIL/SCI/22/001"
           error={errors.matric_number}
           required
         />
@@ -242,7 +296,6 @@ export function SignUpForm() {
         label="Previous Hostel"
         name="previous_hostel"
         type="text"
-        placeholder="e.g., Arafims 1"
         error={errors.previous_hostel}
         required
       />
@@ -252,7 +305,6 @@ export function SignUpForm() {
           label="Guardian Name"
           name="guardian_name"
           type="text"
-          placeholder="Guardian's full name"
           error={errors.guardian_name}
           required
         />
@@ -260,7 +312,6 @@ export function SignUpForm() {
           label="Guardian Phone"
           name="guardian_phone"
           type="tel"
-          placeholder="+234 123 456 7890"
           error={errors.guardian_phone}
           required
         />
@@ -270,10 +321,30 @@ export function SignUpForm() {
         label="Phone Number"
         name="phone_number"
         type="tel"
-        placeholder="+234 123 456 7890"
         error={errors.phone_number}
         required
       />
+
+      <FormFileInput
+        label="Passport Photograph"
+        name="passport_photo"
+        accept=".jpg,.jpeg,.png"
+        error={errors.passport_photo}
+        helperText="Upload your passport photograph (JPG or PNG)"
+        maxSize={5242880}
+        required
+      />
+
+      {studentType === "returning" && (
+        <FormFileInput
+          label="School ID (Optional)"
+          name="school_id"
+          accept=".pdf,.jpg,.jpeg,.png"
+          error={errors.school_id}
+          helperText="Upload your school ID (PDF, JPG, or PNG)"
+          maxSize={5242880}
+        />
+      )}
 
       {validateAdmissionLetterRequired(level) && (
         <FormFileInput
@@ -301,6 +372,8 @@ export function SignUpForm() {
       >
         {loading ? "Creating account..." : "Create Account"}
       </button>
+        </>
+      )}
     </form>
   );
 }

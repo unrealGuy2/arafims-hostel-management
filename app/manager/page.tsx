@@ -30,6 +30,13 @@ export default async function ManagerPage({
       : typeof params.hostelId === "string"
         ? params.hostelId
         : undefined;
+  const requestedStudentFilter =
+    typeof params.studentFilter === "string" ? params.studentFilter : "unviewed";
+  const studentFilter = ["all", "unviewed", "viewed"].includes(requestedStudentFilter)
+    ? requestedStudentFilter
+    : "unviewed";
+  const studentSearch =
+    typeof params.studentSearch === "string" ? params.studentSearch.trim() : "";
   const { data: hostels } = await supabase
     .from("hostels")
     .select("id, name")
@@ -47,14 +54,32 @@ export default async function ManagerPage({
     .eq("hostel_id", hostel.id);
   const roomIds = (rooms ?? []).map((room) => room.id);
 
+  let reservationsQuery = supabase
+    .from("reservations")
+    .select(
+      "id, status, room_price, created_at, decision_reason, student_profiles!inner(id, full_name, email, phone_number, matric_number, gender, level, department, faculty, previous_hostel, manager_viewed_at), rooms(room_number, room_type, capacity), payments(id, amount_expected, payment_status, payment_reference, submitted_at, payment_proof_path, payment_receipt_path, rejection_reason)"
+    )
+    .in("room_id", roomIds)
+    .order("created_at", { ascending: false });
+
+  if (studentFilter === "unviewed") {
+    reservationsQuery = reservationsQuery.is("student_profiles.manager_viewed_at", null);
+  } else if (studentFilter === "viewed") {
+    reservationsQuery = reservationsQuery.not(
+      "student_profiles.manager_viewed_at",
+      "is",
+      null
+    );
+  }
+  if (studentSearch) {
+    reservationsQuery = reservationsQuery.ilike(
+      "student_profiles.full_name",
+      `%${studentSearch}%`
+    );
+  }
+
   const { data: reservations } = roomIds.length
-    ? await supabase
-        .from("reservations")
-        .select(
-          "id, status, room_price, created_at, decision_reason, student_profiles(full_name, email, phone_number, matric_number, gender, level, department, faculty, previous_hostel), rooms(room_number, room_type, capacity), payments(id, amount_expected, payment_status, payment_reference, submitted_at, payment_proof_path, rejection_reason)"
-        )
-        .in("room_id", roomIds)
-        .order("created_at", { ascending: false })
+    ? await reservationsQuery
     : { data: [] };
   const managerReservations = reservations ?? [];
   const result = typeof params.result === "string" ? params.result : undefined;
@@ -130,6 +155,43 @@ export default async function ManagerPage({
             Reservation rejected successfully.
           </div>
         )}
+        <form
+          method="get"
+          className="mt-8 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-4"
+        >
+          {context.role === "master_admin" && selectedHostelId && (
+            <input type="hidden" name="hostelId" value={selectedHostelId} />
+          )}
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <label className="flex-1 text-sm text-[#b8b8b8]">
+              Search students
+              <input
+                name="studentSearch"
+                value={studentSearch}
+                placeholder="Search student by name..."
+                className="mt-1 w-full rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-sm text-[#f5f5f5]"
+              />
+            </label>
+            <label className="text-sm text-[#b8b8b8]">
+              Applications
+              <select
+                name="studentFilter"
+                value={studentFilter}
+                className="mt-1 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-sm text-[#f5f5f5]"
+              >
+                <option value="unviewed">Unviewed</option>
+                <option value="all">All Students</option>
+                <option value="viewed">Viewed</option>
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
+            >
+              Apply
+            </button>
+          </div>
+        </form>
         {paymentResult === "confirmed" && (
           <div className="mt-8 rounded-xl border border-[#10a574]/30 bg-[#10a574]/10 p-4 text-[#7ef1c6]">
             Payment confirmed successfully.
@@ -295,6 +357,11 @@ export default async function ManagerPage({
                     <div>
                       <h2 className="text-2xl font-bold">{student?.full_name}</h2>
                       <p className="mt-1 text-[#b8b8b8]">{student?.email}</p>
+                      {!student?.manager_viewed_at && (
+                        <span className="mt-2 inline-block rounded-full border border-[#d4a574]/40 bg-[#d4a574]/10 px-2 py-1 text-xs text-[#f5d5a4]">
+                          Unviewed
+                        </span>
+                      )}
                     </div>
                     <span className="rounded-full border border-[#d4a574]/30 bg-[#d4a574]/10 px-3 py-1 text-sm text-[#f5d5a4]">
                       {reservation.status}
@@ -315,6 +382,25 @@ export default async function ManagerPage({
                     <div><dt className="text-[#888]">Reservation price</dt><dd>{formatCurrency(Number(reservation.room_price))}</dd></div>
                     <div><dt className="text-[#888]">Application date</dt><dd>{new Date(reservation.created_at).toLocaleDateString()}</dd></div>
                   </dl>
+                  {!student?.manager_viewed_at && student?.id && (
+                    <form
+                      action={`/api/manager/students/${student.id}/viewed`}
+                      method="post"
+                      className="mt-6"
+                    >
+                      <input type="hidden" name="filter" value={studentFilter} />
+                      <input type="hidden" name="search" value={studentSearch} />
+                      {selectedHostelId && (
+                        <input type="hidden" name="hostelId" value={selectedHostelId} />
+                      )}
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]"
+                      >
+                        Mark application as viewed
+                      </button>
+                    </form>
+                  )}
                   {payment && (
                     <div className="mt-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4">
                       <h3 className="font-semibold">Payment</h3>
@@ -329,6 +415,11 @@ export default async function ManagerPage({
                           {payment.payment_proof_path && (
                             <Link href={`/api/manager/payments/${payment.id}/proof`} className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]">
                               View payment proof
+                            </Link>
+                          )}
+                          {payment.payment_receipt_path && (
+                            <Link href={`/api/manager/payments/${payment.id}/receipt`} className="rounded-lg border border-[#d4a574]/40 px-4 py-2 text-sm text-[#f5d5a4]">
+                              View payment receipt
                             </Link>
                           )}
                           <form action={`/api/manager/payments/${payment.id}`} method="post">

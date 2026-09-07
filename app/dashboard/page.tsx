@@ -31,247 +31,150 @@ export default async function DashboardPage() {
   const { data: reservations } = await supabase
     .from("reservations")
     .select(
-      "id, status, created_at, room_id, room_price, room:room_id(room_number, room_type, capacity, price, hostel:hostel_id(name, slug)), payment:payments(id, payment_status, amount_expected, amount_paid, payment_proof_path, payment_reference, submitted_at, rejection_reason, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number))"
+      "id, status, created_at, room_price, room:room_id(room_number, room_type, hostel:hostel_id(name)), payment:payments(payment_status)"
     )
     .eq("student_profile_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(3);
+
   const hasActiveReservation = (reservations ?? []).some(
-    (reservation) => reservation.status === "pending" || reservation.status === "approved"
+    (reservation) =>
+      reservation.status === "pending" || reservation.status === "approved"
   );
 
-  async function handleSignOut() {
-    "use server";
-    const supabaseLogout = await createClient();
-    await supabaseLogout.auth.signOut();
-    redirect("/");
-  }
-
   return (
-    <div className="min-h-screen bg-[#0f0f0f] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="text-2xl font-bold text-[#10a574]">
-            Arafims
-          </Link>
-          <form action={handleSignOut}>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              Sign Out
-            </button>
-          </form>
+    <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
+          <p className="text-sm uppercase tracking-[0.2em] text-[#d4a574]">
+            Student dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-bold font-display sm:text-4xl">
+            Welcome, {profile.full_name}
+          </h1>
+          <p className="mt-2 text-[#b8b8b8]">
+            Manage your accommodation application and student records.
+          </p>
         </div>
 
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-8">
-          <h1 className="text-3xl font-bold font-display mb-2">
-            Welcome, {profile.full_name}!
-          </h1>
-          <p className="text-[#b8b8b8] mb-8">
-            Here's your Arafims dashboard.
-          </p>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg p-6">
-              <h2 className="text-xl font-bold font-display mb-4">
-                Student Profile
-              </h2>
-              <dl className="space-y-3">
-                <div>
-                  <dt className="text-[#888] text-sm">Full Name</dt>
-                  <dd className="text-[#f5f5f5]">{profile.full_name}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Email</dt>
-                  <dd className="text-[#f5f5f5]">{profile.email}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Matric Number</dt>
-                  <dd className="text-[#f5f5f5]">{profile.matric_number}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Level</dt>
-                  <dd className="text-[#f5f5f5]">{profile.level}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Department</dt>
-                  <dd className="text-[#f5f5f5]">{profile.department}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Faculty</dt>
-                  <dd className="text-[#f5f5f5]">{profile.faculty}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Gender</dt>
-                  <dd className="text-[#f5f5f5]">{profile.gender}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#888] text-sm">Previous Hostel</dt>
-                  <dd className="text-[#f5f5f5]">{profile.previous_hostel}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg p-6">
-              <h2 className="text-xl font-bold font-display mb-4">
-                Profile Status
-              </h2>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#10a574] rounded-full" />
-                  <span className="text-[#f5f5f5]">Account Created</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#10a574] rounded-full" />
-                  <span className="text-[#f5f5f5]">Profile Complete</span>
-                </div>
-                {profile.admission_letter_path && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-[#10a574] rounded-full" />
-                    <span className="text-[#f5f5f5]">
-                      Admission Letter Uploaded
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-5">
+            <p className="text-sm text-[#888]">Profile</p>
+            <p className="mt-2 text-xl font-semibold text-[#7ef1c6]">Complete</p>
           </div>
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-5">
+            <p className="text-sm text-[#888]">Applications</p>
+            <p className="mt-2 text-xl font-semibold">
+              {reservations?.length ?? 0}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-5">
+            <p className="text-sm text-[#888]">Current status</p>
+            <p className="mt-2 text-xl font-semibold">
+              {hasActiveReservation ? "In progress" : "No active application"}
+            </p>
+          </div>
+        </div>
 
-          <div className="mt-8 p-6 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg">
-            <div className="flex items-center justify-between gap-4 mb-4">
-              <h2 className="text-xl font-bold font-display">Reservation Status</h2>
-              {!hasActiveReservation && (
-                <Link
-                  href="/dashboard/reservations"
-                  className="inline-flex items-center rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f] transition-colors hover:bg-[#1ec98c]"
-                >
-                  Apply for a Room
-                </Link>
-              )}
-            </div>
-
-            {reservations && reservations.length > 0 ? (
-              <div className="space-y-3">
-                {reservations.map((reservation) => {
-                  const room = Array.isArray(reservation.room)
-                    ? reservation.room[0]
-                    : reservation.room;
-                  const hostel = Array.isArray(room?.hostel)
-                    ? room.hostel[0]
-                    : room?.hostel;
-
-                  return (
-                    <div
-                      key={reservation.id}
-                      className="rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm text-[#b8b8b8]">{hostel?.name}</p>
-                          <p className="text-lg font-semibold text-[#f5f5f5]">
-                            Room {room?.room_number}
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-1 text-xs font-medium uppercase tracking-wide text-[#f5f5f5]">
-                          {reservation.status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-[#b8b8b8]">
-                        {room?.room_type} · ₦{reservation.room_price} · Capacity{" "}
-                        {room?.capacity}
-                      </p>
-                      {reservation.status === "approved" && (() => {
-                        const payment = Array.isArray(reservation.payment)
-                          ? reservation.payment[0]
-                          : reservation.payment;
-                        const account = payment
-                          ? Array.isArray(payment.payment_account)
-                            ? payment.payment_account[0]
-                            : payment.payment_account
-                          : null;
-                        const receipt = payment
-                          ? Array.isArray(payment.receipt)
-                            ? payment.receipt[0]
-                            : payment.receipt
-                          : null;
-                        if (!payment) return null;
-                        return (
-                          <div className="mt-4 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] p-4">
-                            <p className="font-semibold text-[#f5f5f5]">Accommodation Payment</p>
-                            <dl className="mt-3 grid gap-2 text-sm text-[#b8b8b8] sm:grid-cols-2">
-                              <div><dt className="text-[#888]">Amount to pay</dt><dd>₦{payment.amount_expected}</dd></div>
-                              <div><dt className="text-[#888]">Payment status</dt><dd>{payment.payment_status === "proof_submitted" ? "Awaiting verification" : payment.payment_status === "confirmed" ? "Payment Confirmed" : payment.payment_status}</dd></div>
-                              <div><dt className="text-[#888]">Bank</dt><dd>{account?.bank_name}</dd></div>
-                              <div><dt className="text-[#888]">Account name</dt><dd>{account?.account_name}</dd></div>
-                              <div><dt className="text-[#888]">Account number</dt><dd>{account?.account_number}</dd></div>
-                            </dl>
-                            {payment.payment_reference && (
-                              <p className="mt-2 text-sm text-[#b8b8b8]">
-                                Payment reference: {payment.payment_reference}
-                              </p>
-                            )}
-                            {payment.payment_status === "payment_pending" || payment.payment_status === "rejected" ? (
-                              <form action="/api/payments/proof" method="post" encType="multipart/form-data" className="mt-4 space-y-3">
-                                <input type="hidden" name="paymentId" value={payment.id} />
-                                <input required name="paymentProof" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm text-[#b8b8b8]" />
-                                <input name="paymentReference" placeholder="Payment reference (optional)" className="w-full rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#f5f5f5]" />
-                                {payment.payment_status === "rejected" && payment.rejection_reason && <p className="text-sm text-red-300">Rejected: {payment.rejection_reason}</p>}
-                                <button type="submit" className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]">Submit payment proof</button>
-                              </form>
-                            ) : payment.payment_status === "proof_submitted" ? (
-                              <p className="mt-4 text-sm text-[#f5d5a4]">Payment is only confirmed after manager verification.</p>
-                            ) : payment.payment_status === "confirmed" && receipt ? (
-                              <div className="mt-4 flex flex-wrap items-center gap-3">
-                                <p className="text-sm text-[#7ef1c6]">Payment Confirmed · Receipt {receipt.receipt_number}</p>
-                                <Link
-                                  href={`/api/payments/${payment.id}/receipt`}
-                                  target="_blank"
-                                  className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
-                                >
-                                  Download Official Receipt
-                                </Link>
-                                <Link
-                                  href={`/api/payments/${payment.id}/receipt`}
-                                  target="_blank"
-                                  className="rounded-lg border border-[#10a574]/40 px-4 py-2 text-sm text-[#7ef1c6]"
-                                >
-                                  Print Receipt
-                                </Link>
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-[#b8b8b8]">
-                No reservation applications yet.
+        <section className="mt-8 rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-[#d4a574]">
+                Quick actions
               </p>
+              <h2 className="mt-2 text-2xl font-bold font-display">
+                What would you like to do?
+              </h2>
+            </div>
+            {!hasActiveReservation && (
+              <Link
+                href="/dashboard/reservations"
+                className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f] transition-colors hover:bg-[#1ec98c]"
+              >
+                Apply for a room
+              </Link>
             )}
           </div>
-
-          <div className="mt-8 p-6 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg">
-            <h2 className="text-xl font-bold font-display mb-4">
-              What's Next?
-            </h2>
-            <p className="text-[#b8b8b8] mb-4">
-              Your profile is set up and ready. In the next phase of Arafims,
-              you'll be able to:
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-[#b8b8b8]">
-              <li>Browse available rooms</li>
-              <li>Submit accommodation applications</li>
-              <li>Track your application status</li>
-              <li>Manage payments</li>
-              <li>Submit complaints and feedback</li>
-            </ul>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                href: "/dashboard/reservations",
+                title: "Reservations",
+                description: "Apply for a room and track applications.",
+              },
+              {
+                href: "/dashboard/profile",
+                title: "Profile",
+                description: "Review your student information.",
+              },
+              {
+                href: "/dashboard/payments",
+                title: "Payments",
+                description: "Submit proof and view receipts.",
+              },
+              {
+                href: "/dashboard/documents",
+                title: "Documents",
+                description: "Access your uploaded documents.",
+              },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 transition-colors hover:border-[#10a574]/60"
+              >
+                <h3 className="font-semibold">{link.title}</h3>
+                <p className="mt-2 text-sm text-[#b8b8b8]">{link.description}</p>
+              </Link>
+            ))}
           </div>
-        </div>
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-bold font-display">Recent reservations</h2>
+            <Link
+              href="/dashboard/reservations"
+              className="text-sm text-[#7ef1c6] hover:text-[#1ec98c]"
+            >
+              View reservation flow
+            </Link>
+          </div>
+          {reservations && reservations.length > 0 ? (
+            <div className="mt-5 space-y-3">
+              {reservations.map((reservation) => {
+                const room = Array.isArray(reservation.room)
+                  ? reservation.room[0]
+                  : reservation.room;
+                const hostel = room?.hostel
+                  ? Array.isArray(room.hostel)
+                    ? room.hostel[0]
+                    : room.hostel
+                  : null;
+
+                return (
+                  <div
+                    key={reservation.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4"
+                  >
+                    <div>
+                      <p className="text-sm text-[#b8b8b8]">{hostel?.name}</p>
+                      <p className="mt-1 font-semibold">
+                        Room {room?.room_number ?? "Pending assignment"}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[#2a2a2a] px-3 py-1 text-xs font-medium uppercase tracking-wide">
+                      {reservation.status}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-5 text-[#b8b8b8]">No reservation applications yet.</p>
+          )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

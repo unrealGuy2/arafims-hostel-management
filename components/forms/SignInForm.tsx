@@ -83,7 +83,6 @@ export function SignInForm() {
         label="Email"
         name="email"
         type="email"
-        placeholder="john@example.com"
         error={errors.email}
         required
       />
@@ -92,7 +91,6 @@ export function SignInForm() {
         label="Password"
         name="password"
         type="password"
-        placeholder="••••••••"
         error={errors.password}
         required
       />
