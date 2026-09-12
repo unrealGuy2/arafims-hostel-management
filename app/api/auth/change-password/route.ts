@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthorizationContext } from "@/lib/auth/authorization";
+import { createClient } from "@/lib/supabase/server";
 import { passwordSchema } from "@/lib/utils/validation";
 
 export async function POST(request: Request) {
@@ -70,11 +71,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: updateError.message }, { status: 400 });
   }
 
-  const { error: requirementError } = await supabase.rpc(
+  const refreshedSupabase = await createClient();
+  const { error: requirementError } = await refreshedSupabase.rpc(
     "clear_temporary_password_requirement"
   );
   if (requirementError) {
     return NextResponse.json({ message: requirementError.message }, { status: 400 });
+  }
+
+  const { data: roleRecord, error: roleError } = await refreshedSupabase
+    .from("user_roles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .single();
+  if (roleError || roleRecord?.must_change_password) {
+    return NextResponse.json(
+      { message: "Password changed, but account setup is incomplete. Please try again." },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ message: "Password changed successfully" });
