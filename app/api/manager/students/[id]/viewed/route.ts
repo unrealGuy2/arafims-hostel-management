@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAuthorizationContext } from "@/lib/auth/authorization";
 import { NextResponse } from "next/server";
 
 export async function POST(
@@ -6,11 +7,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const context = await getAuthorizationContext();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user || !context || context.mustChangePassword) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 

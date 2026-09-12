@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { passwordSchema } from "@/lib/utils/validation";
 
-export function PasswordChangeForm() {
+export function PasswordChangeForm({ redirectTo }: { redirectTo?: string } = {}) {
+  const router = useRouter();
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,9 @@ export function PasswordChangeForm() {
 
       event.currentTarget.reset();
       setMessage("Password changed successfully.");
+      if (redirectTo) {
+        router.push(redirectTo);
+      }
     } catch {
       setErrors(["Unable to change password"]);
     } finally {

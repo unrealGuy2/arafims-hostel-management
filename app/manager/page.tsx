@@ -21,6 +21,9 @@ export default async function ManagerPage({
   if (!context || (context.role !== "manager" && context.role !== "master_admin")) {
     redirect("/signin");
   }
+  if (context.mustChangePassword) {
+    redirect("/manager/change-password");
+  }
 
   const supabase = await createClient();
   const params = (await searchParams) ?? {};
@@ -141,7 +144,7 @@ export default async function ManagerPage({
             {hostel.name}
           </h1>
           <p className="mt-3 text-[#b8b8b8]">
-            Review pending reservation applications for your assigned hostel.
+            Hi, {context.displayName}. Review pending reservation applications for your assigned hostel.
           </p>
         </div>
 

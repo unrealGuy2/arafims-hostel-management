@@ -9,7 +9,12 @@ export async function POST(
 ) {
   const context = await getAuthorizationContext();
 
-  if (!context || context.role !== "manager" || !context.assignedHostelId) {
+  if (
+    !context ||
+    context.mustChangePassword ||
+    (context.role !== "manager" && context.role !== "master_admin") ||
+    (context.role === "manager" && !context.assignedHostelId)
+  ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 

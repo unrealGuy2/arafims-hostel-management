@@ -8,7 +8,12 @@ export async function GET(
 ) {
   const context = await getAuthorizationContext();
 
-  if (!context || context.role !== "manager" || !context.assignedHostelId) {
+  if (
+    !context ||
+    context.mustChangePassword ||
+    context.role !== "manager" ||
+    !context.assignedHostelId
+  ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 

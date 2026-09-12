@@ -70,5 +70,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: updateError.message }, { status: 400 });
   }
 
+  const { error: requirementError } = await supabase.rpc(
+    "clear_temporary_password_requirement"
+  );
+  if (requirementError) {
+    return NextResponse.json({ message: requirementError.message }, { status: 400 });
+  }
+
   return NextResponse.json({ message: "Password changed successfully" });
 }

@@ -5,7 +5,11 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   const context = await getAuthorizationContext();
 
-  if (!context || (context.role !== "manager" && context.role !== "master_admin")) {
+  if (
+    !context ||
+    context.mustChangePassword ||
+    (context.role !== "manager" && context.role !== "master_admin")
+  ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 

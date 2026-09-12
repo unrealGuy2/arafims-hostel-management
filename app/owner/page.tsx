@@ -71,6 +71,12 @@ export default async function OwnerPage() {
           >
             Export Approved Students
           </a>
+          <Link
+            href="/manager"
+            className="ml-3 mt-6 inline-flex rounded-lg border border-[#10a574]/40 px-5 py-2.5 text-sm font-semibold text-[#7ef1c6]"
+          >
+            Review Applications
+          </Link>
         </div>
         <PasswordChangeForm />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

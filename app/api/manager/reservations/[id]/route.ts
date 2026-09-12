@@ -23,7 +23,12 @@ export async function POST(
 ) {
   const context = await getAuthorizationContext();
 
-  if (!context || context.role !== "manager" || !context.assignedHostelId) {
+  if (
+    !context ||
+    (context.role !== "manager" && context.role !== "master_admin") ||
+    context.mustChangePassword ||
+    (context.role === "manager" && !context.assignedHostelId)
+  ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 
@@ -41,7 +46,10 @@ export async function POST(
   const room = reservation?.room;
   const roomRecord = Array.isArray(room) ? room[0] : room;
 
-  if (!reservation || roomRecord?.hostel_id !== context.assignedHostelId) {
+  if (
+    !reservation ||
+    (context.role === "manager" && roomRecord?.hostel_id !== context.assignedHostelId)
+  ) {
     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
   }
 

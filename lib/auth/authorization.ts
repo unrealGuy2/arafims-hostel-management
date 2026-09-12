@@ -6,6 +6,8 @@ export interface AuthorizationContext {
   userId: string;
   role: AppRole;
   assignedHostelId: string | null;
+  displayName: string;
+  mustChangePassword: boolean;
 }
 
 function isAppRole(value: string): value is AppRole {
@@ -22,17 +24,29 @@ export async function getAuthorizationContext(): Promise<AuthorizationContext | 
     return null;
   }
 
-  const { data: role, error: roleError } = await supabase.rpc("current_user_role");
+  const { data: roleRecord, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role, display_name, must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const role = roleRecord?.role;
 
   if (roleError || typeof role !== "string" || !isAppRole(role)) {
     return null;
   }
+  const roleData = roleRecord;
 
   if (role !== "manager") {
     return {
       userId: user.id,
       role,
       assignedHostelId: null,
+      displayName:
+        roleData?.display_name ||
+        user.user_metadata?.full_name ||
+        user.email ||
+        "User",
+      mustChangePassword: false,
     };
   }
 
@@ -50,6 +64,12 @@ export async function getAuthorizationContext(): Promise<AuthorizationContext | 
     userId: user.id,
     role,
     assignedHostelId: assignment.hostel_id,
+    displayName:
+      roleData?.display_name ||
+      user.user_metadata?.full_name ||
+      user.email ||
+      "Manager",
+    mustChangePassword: Boolean(roleData?.must_change_password),
   };
 }
 
