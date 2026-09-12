@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { PasswordChangeForm } from "@/components/forms/PasswordChangeForm";
 import { getAuthorizationContext } from "@/lib/auth/authorization";
 
+export const dynamic = "force-dynamic";
+
 export default async function ManagerChangePasswordPage() {
   const context = await getAuthorizationContext();
 

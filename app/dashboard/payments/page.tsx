@@ -254,7 +254,7 @@ export default async function PaymentsPage({
                             target="_blank"
                             className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
                           >
-                            Download official receipt
+                            Download Receipt
                           </Link>
                         </div>
                       ) : null}

@@ -11,8 +11,8 @@ export async function GET(
   if (
     !context ||
     context.mustChangePassword ||
-    context.role !== "manager" ||
-    !context.assignedHostelId
+    (context.role !== "manager" && context.role !== "master_admin") ||
+    (context.role === "manager" && !context.assignedHostelId)
   ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
@@ -29,7 +29,11 @@ export async function GET(
   const room = reservationRecord?.room;
   const roomRecord = Array.isArray(room) ? room[0] : room;
 
-  if (error || !payment?.payment_proof_path || roomRecord?.hostel_id !== context.assignedHostelId) {
+  if (
+    error ||
+    !payment?.payment_proof_path ||
+    (context.role === "manager" && roomRecord?.hostel_id !== context.assignedHostelId)
+  ) {
     return NextResponse.json({ message: "Payment proof not found" }, { status: 404 });
   }
 

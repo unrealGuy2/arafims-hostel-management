@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthorizationContext } from "@/lib/auth/authorization";
-import { PasswordChangeForm } from "@/components/forms/PasswordChangeForm";
+
+export const dynamic = "force-dynamic";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-NG", {
@@ -57,6 +58,15 @@ export default async function ManagerPage({
     .eq("hostel_id", hostel.id);
   const roomIds = (rooms ?? []).map((room) => room.id);
 
+  let matchingStudentIds: string[] | null = null;
+  if (studentSearch) {
+    const { data: matchingProfiles } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .ilike("full_name", `%${studentSearch}%`);
+    matchingStudentIds = (matchingProfiles ?? []).map((profile) => profile.id);
+  }
+
   let reservationsQuery = supabase
     .from("reservations")
     .select(
@@ -75,16 +85,22 @@ export default async function ManagerPage({
     );
   }
   if (studentSearch) {
-    reservationsQuery = reservationsQuery.ilike(
-      "student_profiles.full_name",
-      `%${studentSearch}%`
-    );
+    reservationsQuery = reservationsQuery.in("student_profile_id", matchingStudentIds ?? []);
   }
 
   const { data: reservations } = roomIds.length
     ? await reservationsQuery
     : { data: [] };
   const managerReservations = reservations ?? [];
+  const { data: paymentReservations } = roomIds.length
+    ? await supabase
+        .from("reservations")
+        .select(
+          "id, created_at, student_profiles(full_name, matric_number), rooms(room_number, room_type), payments(id, amount_expected, amount_paid, payment_status, payment_reference, payment_proof_path, payment_receipt_path, submitted_at, verified_at, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number, receipt_date, payment_method))"
+        )
+        .in("room_id", roomIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
   const result = typeof params.result === "string" ? params.result : undefined;
   const paymentResult =
     typeof params.paymentResult === "string" ? params.paymentResult : undefined;
@@ -332,7 +348,102 @@ export default async function ManagerPage({
           )}
         </section>
 
-        <PasswordChangeForm />
+        <section className="mt-8 rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
+          <h2 className="text-2xl font-bold font-display">Payment History</h2>
+          <div className="mt-5 space-y-3">
+            {(paymentReservations ?? []).flatMap((reservation) => {
+              const student = Array.isArray(reservation.student_profiles)
+                ? reservation.student_profiles[0]
+                : reservation.student_profiles;
+              const room = Array.isArray(reservation.rooms)
+                ? reservation.rooms[0]
+                : reservation.rooms;
+              const payment = Array.isArray(reservation.payments)
+                ? reservation.payments[0]
+                : reservation.payments;
+              if (!payment) {
+                return [];
+              }
+              const receipt = Array.isArray(payment.receipt)
+                ? payment.receipt[0]
+                : payment.receipt;
+              const account = Array.isArray(payment.payment_account)
+                ? payment.payment_account[0]
+                : payment.payment_account;
+              const paymentDate =
+                payment.verified_at ?? payment.submitted_at ?? reservation.created_at;
+
+              return (
+                <div
+                  key={payment.id}
+                  className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{student?.full_name}</p>
+                      <p className="text-sm text-[#b8b8b8]">
+                        {student?.matric_number} · Room {room?.room_number}
+                      </p>
+                    </div>
+                    <span className="text-sm text-[#f5d5a4]">
+                      {payment.payment_status}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <dt className="text-[#888]">Date</dt>
+                      <dd>{new Date(paymentDate).toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#888]">Amount</dt>
+                      <dd>{formatCurrency(Number(payment.amount_paid ?? payment.amount_expected))}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#888]">Method</dt>
+                      <dd>{receipt?.payment_method ?? account?.bank_name ?? "Not available"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[#888]">Receipt</dt>
+                      <dd>{receipt?.receipt_number ?? "Not issued"}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                    {receipt && (
+                      <Link
+                        href={`/api/payments/${payment.id}/receipt`}
+                        target="_blank"
+                        className="rounded-lg bg-[#10a574] px-3 py-2 font-semibold text-[#0f0f0f]"
+                      >
+                        Download Receipt
+                      </Link>
+                    )}
+                    {payment.payment_proof_path && (
+                      <Link
+                        href={`/api/manager/payments/${payment.id}/proof`}
+                        target="_blank"
+                        className="rounded-lg border border-[#10a574]/40 px-3 py-2 text-[#7ef1c6]"
+                      >
+                        View Payment Proof
+                      </Link>
+                    )}
+                    {payment.payment_receipt_path && (
+                      <Link
+                        href={`/api/manager/payments/${payment.id}/receipt`}
+                        target="_blank"
+                        className="rounded-lg border border-[#d4a574]/40 px-3 py-2 text-[#f5d5a4]"
+                      >
+                        View Uploaded Receipt
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {(paymentReservations ?? []).every((reservation) => !reservation.payments?.length) && (
+              <p className="text-sm text-[#b8b8b8]">No payment history available.</p>
+            )}
+          </div>
+        </section>
 
         <div className="mt-8 space-y-6">
           {managerReservations.length === 0 ? (

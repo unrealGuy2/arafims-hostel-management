@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { FormInput } from "./FormInput";
 import { validateSignIn } from "@/lib/utils/validation";
 
@@ -12,7 +11,6 @@ interface SignInErrors {
 }
 
 export function SignInForm() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<SignInErrors>({});
 
@@ -56,7 +54,7 @@ export function SignInForm() {
         return;
       }
 
-      router.push(
+      window.location.assign(
         result.role === "master_admin"
           ? "/owner"
           : result.role === "manager"

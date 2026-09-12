@@ -11,8 +11,8 @@ export async function GET(
   if (
     !context ||
     context.mustChangePassword ||
-    context.role !== "manager" ||
-    !context.assignedHostelId
+    (context.role !== "manager" && context.role !== "master_admin") ||
+    (context.role === "manager" && !context.assignedHostelId)
   ) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
@@ -32,6 +32,7 @@ export async function GET(
   if (
     error ||
     !payment?.payment_receipt_path ||
+    context.role === "manager" &&
     roomRecord?.hostel_id !== context.assignedHostelId
   ) {
     return NextResponse.json({ message: "Payment receipt not found" }, { status: 404 });

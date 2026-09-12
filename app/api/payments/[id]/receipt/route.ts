@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAuthorizationContext } from "@/lib/auth/authorization";
 import { NextResponse } from "next/server";
 
 const escapeHtml = (value: string) =>
@@ -13,24 +14,43 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const context = await getAuthorizationContext();
+  if (!context || context.mustChangePassword) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 
   const { id } = await params;
+  const supabase = await createClient();
   const { data: payment, error: paymentError } = await supabase
     .from("payments")
-    .select("id, payment_status, reservation:reservation_id(student_profile_id), receipt:payment_receipts(*)")
+    .select(
+      "id, payment_status, reservation:reservation_id(student_profile_id, room:room_id(hostel_id)), receipt:payment_receipts(*)"
+    )
     .eq("id", id)
     .single();
   const reservation = payment?.reservation;
   const reservationRecord = Array.isArray(reservation) ? reservation[0] : reservation;
   const receipt = Array.isArray(payment?.receipt) ? payment.receipt[0] : payment?.receipt;
+  const room = reservationRecord?.room;
+  const roomRecord = Array.isArray(room) ? room[0] : room;
+  const studentOwnsPayment =
+    context.role === "student" &&
+    Boolean(
+      reservationRecord &&
+        (
+          await supabase
+            .from("student_profiles")
+            .select("id")
+            .eq("id", reservationRecord.student_profile_id)
+            .eq("user_id", context.userId)
+            .maybeSingle()
+        ).data
+    );
+  const managerCanAccessPayment =
+    context.role === "master_admin" ||
+    (context.role === "manager" &&
+      Boolean(context.assignedHostelId) &&
+      roomRecord?.hostel_id === context.assignedHostelId);
 
   if (
     paymentError ||
@@ -38,12 +58,7 @@ export async function GET(
     payment.payment_status !== "confirmed" ||
     !reservationRecord ||
     !receipt ||
-    !(await supabase
-      .from("student_profiles")
-      .select("id")
-      .eq("id", reservationRecord.student_profile_id)
-      .eq("user_id", user.id)
-      .maybeSingle()).data
+    (!studentOwnsPayment && !managerCanAccessPayment)
   ) {
     return NextResponse.json({ message: "Receipt not found" }, { status: 404 });
   }
@@ -121,7 +136,7 @@ dt{font-size:12px;color:#65727e;text-transform:uppercase}dd{margin:3px 0 0;font-
   return new NextResponse(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Disposition": `inline; filename="${receipt.receipt_number}.html"`,
+      "Content-Disposition": `attachment; filename="${receipt.receipt_number}.html"`,
     },
   });
 }
