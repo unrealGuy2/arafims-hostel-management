@@ -88,19 +88,11 @@ export default async function ManagerPage({
     reservationsQuery = reservationsQuery.in("student_profile_id", matchingStudentIds ?? []);
   }
 
-  const { data: reservations } = roomIds.length
+  const noMatchingStudents = studentSearch && matchingStudentIds?.length === 0;
+  const { data: reservations } = roomIds.length && !noMatchingStudents
     ? await reservationsQuery
     : { data: [] };
   const managerReservations = reservations ?? [];
-  const { data: paymentReservations } = roomIds.length
-    ? await supabase
-        .from("reservations")
-        .select(
-          "id, created_at, student_profiles(full_name, matric_number), rooms(room_number, room_type), payments(id, amount_expected, amount_paid, payment_status, payment_reference, payment_proof_path, payment_receipt_path, submitted_at, verified_at, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number, receipt_date, payment_method))"
-        )
-        .in("room_id", roomIds)
-        .order("created_at", { ascending: false })
-    : { data: [] };
   const result = typeof params.result === "string" ? params.result : undefined;
   const paymentResult =
     typeof params.paymentResult === "string" ? params.paymentResult : undefined;
@@ -150,6 +142,12 @@ export default async function ManagerPage({
           >
             Back to dashboard
           </Link>
+          <Link
+            href="/manager/payments"
+            className="rounded-lg border border-[#2a2a2a] px-4 py-2 text-sm transition-colors hover:border-[#10a574]/60"
+          >
+            Payment History
+          </Link>
         </div>
 
         <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 md:p-8">
@@ -186,7 +184,7 @@ export default async function ManagerPage({
               Search students
               <input
                 name="studentSearch"
-                value={studentSearch}
+                defaultValue={studentSearch}
                 placeholder="Search student by name..."
                 className="mt-1 w-full rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-sm text-[#f5f5f5]"
               />
@@ -195,7 +193,7 @@ export default async function ManagerPage({
               Applications
               <select
                 name="studentFilter"
-                value={studentFilter}
+                defaultValue={studentFilter}
                 className="mt-1 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] px-3 py-2 text-sm text-[#f5f5f5]"
               >
                 <option value="unviewed">Unviewed</option>
@@ -346,103 +344,6 @@ export default async function ManagerPage({
               ))}
             </div>
           )}
-        </section>
-
-        <section className="mt-8 rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
-          <h2 className="text-2xl font-bold font-display">Payment History</h2>
-          <div className="mt-5 space-y-3">
-            {(paymentReservations ?? []).flatMap((reservation) => {
-              const student = Array.isArray(reservation.student_profiles)
-                ? reservation.student_profiles[0]
-                : reservation.student_profiles;
-              const room = Array.isArray(reservation.rooms)
-                ? reservation.rooms[0]
-                : reservation.rooms;
-              const payment = Array.isArray(reservation.payments)
-                ? reservation.payments[0]
-                : reservation.payments;
-              if (!payment) {
-                return [];
-              }
-              const receipt = Array.isArray(payment.receipt)
-                ? payment.receipt[0]
-                : payment.receipt;
-              const account = Array.isArray(payment.payment_account)
-                ? payment.payment_account[0]
-                : payment.payment_account;
-              const paymentDate =
-                payment.verified_at ?? payment.submitted_at ?? reservation.created_at;
-
-              return (
-                <div
-                  key={payment.id}
-                  className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{student?.full_name}</p>
-                      <p className="text-sm text-[#b8b8b8]">
-                        {student?.matric_number} · Room {room?.room_number}
-                      </p>
-                    </div>
-                    <span className="text-sm text-[#f5d5a4]">
-                      {payment.payment_status}
-                    </span>
-                  </div>
-                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <dt className="text-[#888]">Date</dt>
-                      <dd>{new Date(paymentDate).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[#888]">Amount</dt>
-                      <dd>{formatCurrency(Number(payment.amount_paid ?? payment.amount_expected))}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[#888]">Method</dt>
-                      <dd>{receipt?.payment_method ?? account?.bank_name ?? "Not available"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[#888]">Receipt</dt>
-                      <dd>{receipt?.receipt_number ?? "Not issued"}</dd>
-                    </div>
-                  </dl>
-                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    {receipt && (
-                      <Link
-                        href={`/api/payments/${payment.id}/receipt`}
-                        target="_blank"
-                        className="rounded-lg bg-[#10a574] px-3 py-2 font-semibold text-[#0f0f0f]"
-                      >
-                        Download Receipt
-                      </Link>
-                    )}
-                    {payment.payment_proof_path && (
-                      <Link
-                        href={`/api/manager/payments/${payment.id}/proof`}
-                        target="_blank"
-                        className="rounded-lg border border-[#10a574]/40 px-3 py-2 text-[#7ef1c6]"
-                      >
-                        View Payment Proof
-                      </Link>
-                    )}
-                    {payment.payment_receipt_path && (
-                      <Link
-                        href={`/api/manager/payments/${payment.id}/receipt`}
-                        target="_blank"
-                        className="rounded-lg border border-[#d4a574]/40 px-3 py-2 text-[#f5d5a4]"
-                      >
-                        View Uploaded Receipt
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {(paymentReservations ?? []).every((reservation) => !reservation.payments?.length) && (
-              <p className="text-sm text-[#b8b8b8]">No payment history available.</p>
-            )}
-          </div>
         </section>
 
         <div className="mt-8 space-y-6">

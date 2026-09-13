@@ -31,7 +31,31 @@ export async function getAuthorizationContext(): Promise<AuthorizationContext | 
     .maybeSingle();
   const role = roleRecord?.role;
 
-  if (roleError || typeof role !== "string" || !isAppRole(role)) {
+  if (roleError) {
+    return null;
+  }
+
+  if (!roleRecord) {
+    const { data: studentProfile, error: studentProfileError } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (studentProfileError || !studentProfile) {
+      return null;
+    }
+
+    return {
+      userId: user.id,
+      role: "student",
+      assignedHostelId: null,
+      displayName: user.user_metadata?.full_name || user.email || "User",
+      mustChangePassword: false,
+    };
+  }
+
+  if (typeof role !== "string" || !isAppRole(role)) {
     return null;
   }
   const roleData = roleRecord;

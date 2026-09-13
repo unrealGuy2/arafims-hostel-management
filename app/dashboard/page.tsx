@@ -37,10 +37,15 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(3);
 
-  const hasActiveReservation = (reservations ?? []).some(
-    (reservation) =>
-      reservation.status === "pending" || reservation.status === "approved"
-  );
+  const { data: activeReservation } = await supabase
+    .from("reservations")
+    .select("id")
+    .eq("student_profile_id", profile.id)
+    .neq("status", "rejected")
+    .limit(1)
+    .maybeSingle();
+
+  const hasActiveReservation = Boolean(activeReservation);
 
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">

@@ -188,6 +188,13 @@ const SignUpSchema = z
         message: "New students cannot submit a school ID",
       });
     }
+    if (data.student_type === "returning" && !data.school_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["school_id"],
+        message: "School ID is required for returning students",
+      });
+    }
     if (data.level === "100" && !data.admission_letter) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

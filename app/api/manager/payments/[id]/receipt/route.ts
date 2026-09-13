@@ -21,7 +21,7 @@ export async function GET(
   const supabase = await createClient();
   const { data: payment, error } = await supabase
     .from("payments")
-    .select("payment_receipt_path, reservation:reservation_id(room:room_id(hostel_id))")
+    .select("payment_status, payment_receipt_path, reservation:reservation_id(room:room_id(hostel_id))")
     .eq("id", id)
     .single();
   const reservation = payment?.reservation;
@@ -31,6 +31,7 @@ export async function GET(
 
   if (
     error ||
+    payment?.payment_status !== "confirmed" ||
     !payment?.payment_receipt_path ||
     context.role === "manager" &&
     roomRecord?.hostel_id !== context.assignedHostelId

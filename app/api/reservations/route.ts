@@ -27,6 +27,29 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/signin", request.url));
   }
 
+  const { data: existingReservation, error: existingReservationError } =
+    await supabase
+      .from("reservations")
+      .select("id, status")
+      .eq("student_profile_id", profile.id)
+      .neq("status", "rejected")
+      .limit(1)
+      .maybeSingle();
+
+  if (existingReservationError) {
+    return NextResponse.json(
+      { message: "Unable to verify reservation eligibility" },
+      { status: 500 }
+    );
+  }
+
+  if (existingReservation) {
+    return NextResponse.json(
+      { message: "You already have an active reservation" },
+      { status: 409 }
+    );
+  }
+
   const formData = await request.formData();
   const roomId = String(formData.get("roomId") ?? "").trim();
 

@@ -9,7 +9,7 @@ const formatDate = (value: string) =>
     timeStyle: "short",
   }).format(new Date(value));
 
-export async function GET() {
+export async function GET(request: Request) {
   const context = await getAuthorizationContext();
 
   if (!context || context.role !== "master_admin") {
@@ -17,13 +17,32 @@ export async function GET() {
   }
 
   const supabase = await createClient();
-  const { data: reservations, error } = await supabase
+  const params = new URL(request.url).searchParams;
+  const hostelId = params.get("hostelId");
+  const reservationStatus = params.get("reservationStatus");
+  const paymentStatus = params.get("paymentStatus");
+  const receiptStatus = params.get("receiptStatus");
+  const studentType = params.get("studentType");
+  const gender = params.get("gender");
+  const level = params.get("level");
+  const roomNumber = params.get("roomNumber");
+  const search = params.get("search")?.trim();
+  let query = supabase
     .from("reservations")
     .select(
-      "id, status, room_price, created_at, updated_at, student_profiles(full_name, email, matric_number, gender, level, department, faculty, age, previous_hostel, guardian_name, guardian_phone), rooms(room_number, room_type, room_category, capacity, price, hostels(name))"
-    )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+      "id, status, room_price, created_at, updated_at, student_profiles!inner(full_name, email, phone_number, matric_number, gender, level, department, faculty, age, previous_hostel, guardian_name, guardian_phone, school_id_path), rooms!inner(room_number, room_type, room_category, capacity, price, hostel_id, hostels!inner(name)), payments(id, amount_expected, amount_paid, payment_status, payment_receipt_status, payment_reference, payment_proof_path, payment_receipt_path, submitted_at, verified_at, receipt:payment_receipts(receipt_number, receipt_date))"
+    );
+  if (hostelId) query = query.eq("rooms.hostel_id", hostelId);
+  if (["pending", "approved", "rejected", "cancelled"].includes(reservationStatus ?? "")) query = query.eq("status", reservationStatus!);
+  if (["payment_pending", "proof_submitted", "confirmed", "rejected"].includes(paymentStatus ?? "")) query = query.eq("payments.payment_status", paymentStatus!);
+  if (["not_required", "required", "submitted", "approved", "rejected"].includes(receiptStatus ?? "")) query = query.eq("payments.payment_receipt_status", receiptStatus!);
+  if (studentType === "new") query = query.is("student_profiles.school_id_path", null);
+  if (studentType === "returning") query = query.not("student_profiles.school_id_path", "is", null);
+  if (gender === "MALE" || gender === "FEMALE") query = query.eq("student_profiles.gender", gender);
+  if (["100", "200", "300", "400", "500", "600"].includes(level ?? "")) query = query.eq("student_profiles.level", Number(level));
+  if (roomNumber) query = query.ilike("rooms.room_number", `%${roomNumber}%`);
+  if (search) query = query.or(`full_name.ilike.%${search.replace(/[%(),]/g, " ")}%,matric_number.ilike.%${search.replace(/[%(),]/g, " ")}%,email.ilike.%${search.replace(/[%(),]/g, " ")}%,phone_number.ilike.%${search.replace(/[%(),]/g, " ")}%`, { foreignTable: "student_profiles" });
+  const { data: reservations, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
@@ -43,6 +62,8 @@ export async function GET() {
     const room = Array.isArray(reservation.rooms) ? reservation.rooms[0] : reservation.rooms;
     const hostel = room?.hostels;
     const hostelName = hostel && "name" in hostel ? hostel.name : undefined;
+    const payment = Array.isArray(reservation.payments) ? reservation.payments[0] : reservation.payments;
+    const receipt = Array.isArray(payment?.receipt) ? payment.receipt[0] : payment?.receipt;
 
     return {
       "Full Name": student?.full_name,
@@ -56,6 +77,8 @@ export async function GET() {
       "Previous Hostel": student?.previous_hostel,
       "Guardian Name": student?.guardian_name,
       "Guardian Phone": student?.guardian_phone,
+      Phone: student?.phone_number,
+      "Student Type": student?.school_id_path ? "Returning" : "New",
       Hostel: hostelName,
       "Room Number": room?.room_number,
       "Room Type": room?.room_type,
@@ -65,6 +88,13 @@ export async function GET() {
       "Reservation Status": reservation.status,
       "Application Date": formatDate(reservation.created_at),
       "Approved/Updated Date": formatDate(reservation.updated_at),
+      "Payment Status": payment?.payment_status,
+      "Payment Amount": Number(payment?.amount_paid ?? payment?.amount_expected ?? 0),
+      "Payment Reference": payment?.payment_reference,
+      "Receipt Status": payment?.payment_receipt_status,
+      "Official Receipt": receipt?.receipt_number,
+      "Payment Proof": payment?.payment_proof_path ? "Uploaded" : "Not uploaded",
+      "Uploaded Arafims Receipt": payment?.payment_receipt_path ? "Uploaded" : "Not uploaded",
     };
   });
 

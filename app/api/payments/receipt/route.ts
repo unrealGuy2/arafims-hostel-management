@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const { data: payment, error: paymentError } = await supabase
     .from("payments")
     .select(
-      "id, payment_receipt_path, reservation:reservation_id(student_profile_id)"
+      "id, payment_status, payment_receipt_status, payment_receipt_path, reservation:reservation_id(student_profile_id)"
     )
     .eq("id", paymentId)
     .single();
@@ -47,6 +47,8 @@ export async function POST(request: Request) {
   if (
     paymentError ||
     !payment ||
+    payment.payment_status !== "confirmed" ||
+    !["required", "rejected"].includes(payment.payment_receipt_status) ||
     !reservationRecord ||
     !(
       await supabase

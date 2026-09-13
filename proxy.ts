@@ -9,6 +9,8 @@ export const config = {
     "/manager",
     "/manager/:path*",
     "/owner",
+    "/api/payments/:path*",
+    "/api/manager/payments/:path*",
   ],
 };
 

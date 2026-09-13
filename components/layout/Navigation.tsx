@@ -63,8 +63,10 @@ const studentLinks = [
 
 export function StudentNavigation({
   signOutAction,
+  hasActiveReservation,
 }: {
   signOutAction: () => Promise<void>;
+  hasActiveReservation: boolean;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -75,7 +77,7 @@ export function StudentNavigation({
           Arafims
         </Link>
         <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-          {studentLinks.map((link) => {
+          {studentLinks.filter((link) => !hasActiveReservation || link.href !== "/dashboard/reservations").map((link) => {
             const active =
               link.href === "/dashboard"
                 ? pathname === link.href

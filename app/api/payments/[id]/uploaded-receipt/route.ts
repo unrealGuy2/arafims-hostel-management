@@ -17,7 +17,7 @@ export async function GET(
   const { id } = await params;
   const { data: payment, error } = await supabase
     .from("payments")
-    .select("payment_receipt_path, reservation:reservation_id(student_profile_id)")
+    .select("payment_status, payment_receipt_path, reservation:reservation_id(student_profile_id)")
     .eq("id", id)
     .single();
   const reservation = payment?.reservation;
@@ -25,6 +25,7 @@ export async function GET(
 
   if (
     error ||
+    payment?.payment_status !== "confirmed" ||
     !payment?.payment_receipt_path ||
     !reservationRecord ||
     !(

@@ -36,6 +36,10 @@ export async function POST(
   const formData = await request.formData();
   const action = formData.get("action");
   const reason = String(formData.get("reason") ?? "").trim();
+  const redirectTo =
+    formData.get("redirectTo") === "/owner/applications"
+      ? "/owner/applications"
+      : `/manager?result=${action === "approve" ? "approved" : "rejected"}`;
   const supabase = await createClient();
 
   const { data: reservation } = await supabase
@@ -166,7 +170,6 @@ export async function POST(
   }
 
   revalidatePath("/manager");
-  return NextResponse.redirect(
-    new URL(`/manager?result=${action === "approve" ? "approved" : "rejected"}`, request.url)
-  );
+  revalidatePath("/owner/applications");
+  return NextResponse.redirect(new URL(redirectTo, request.url));
 }

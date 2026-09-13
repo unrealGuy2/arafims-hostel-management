@@ -22,6 +22,10 @@ export async function POST(
   const formData = await request.formData();
   const action = formData.get("action");
   const reason = String(formData.get("reason") ?? "").trim();
+  const redirectTo =
+    formData.get("redirectTo") === "/owner/payments"
+      ? "/owner/payments"
+      : null;
   const supabase = await createClient();
 
   const result =
@@ -32,6 +36,16 @@ export async function POST(
             p_payment_id: id,
             p_rejection_reason: reason,
           })
+        : action === "approve_receipt"
+          ? await supabase.rpc("manager_review_payment_receipt", {
+              p_payment_id: id,
+              p_action: "approve",
+            })
+          : action === "reject_receipt"
+            ? await supabase.rpc("manager_review_payment_receipt", {
+                p_payment_id: id,
+                p_action: "reject",
+              })
         : { error: { message: "Invalid payment action" } };
 
   if (result.error) {
@@ -39,7 +53,14 @@ export async function POST(
   }
 
   revalidatePath("/manager");
-  return NextResponse.redirect(
-    new URL(`/manager?paymentResult=${action === "confirm" ? "confirmed" : "rejected"}`, request.url)
-  );
+  revalidatePath("/manager/payments");
+  const redirectPath =
+    redirectTo ??
+    (action === "approve_receipt" || action === "reject_receipt"
+      ? "/manager/payments"
+      : `/manager?paymentResult=${action === "confirm" ? "confirmed" : "rejected"}`);
+  if (redirectTo) {
+    revalidatePath("/owner/payments");
+  }
+  return NextResponse.redirect(new URL(redirectPath, request.url));
 }

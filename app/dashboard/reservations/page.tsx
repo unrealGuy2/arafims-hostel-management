@@ -86,6 +86,86 @@ export default async function ReservationsPage({
     redirect("/signin");
   }
 
+  const { data: existingReservation } = await supabase
+    .from("reservations")
+    .select(
+      "id, status, decision_reason, created_at, room_price, room:room_id(room_number, room_type, hostel:hostel_id(name)), payment:payments(payment_status)"
+    )
+    .eq("student_profile_id", profile.id)
+    .neq("status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingReservation) {
+    const room = Array.isArray(existingReservation.room)
+      ? existingReservation.room[0]
+      : existingReservation.room;
+    const hostel = room?.hostel
+      ? Array.isArray(room.hostel)
+        ? room.hostel[0]
+        : room.hostel
+      : null;
+    const payment = Array.isArray(existingReservation.payment)
+      ? existingReservation.payment[0]
+      : existingReservation.payment;
+
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] px-4 py-12 text-[#f5f5f5] sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <Link href="/dashboard" className="text-2xl font-bold text-[#10a574]">
+              Arafims
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-[#2a2a2a] px-4 py-2 text-sm text-[#f5f5f5] transition-colors hover:border-[#10a574]/60"
+            >
+              Back to dashboard
+            </Link>
+          </div>
+          <section className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 md:p-8">
+            <p className="mb-2 text-sm uppercase tracking-[0.2em] text-[#d4a574]">
+              Reservation status
+            </p>
+            <h1 className="text-3xl font-bold font-display md:text-4xl">
+              Existing reservation application
+            </h1>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-[#888]">Hostel</p>
+                <p className="mt-1">{hostel?.name ?? "Pending assignment"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#888]">Room</p>
+                <p className="mt-1">{room?.room_number ?? "Pending assignment"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#888]">Application status</p>
+                <p className="mt-1 font-semibold uppercase">{existingReservation.status}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#888]">Payment status</p>
+                <p className="mt-1">{payment?.payment_status ?? "Not available"}</p>
+              </div>
+            </div>
+            {existingReservation.decision_reason && (
+              <p className="mt-6 text-sm text-[#b8b8b8]">
+                Decision note: {existingReservation.decision_reason}
+              </p>
+            )}
+            <Link
+              href="/dashboard/payments"
+              className="mt-6 inline-flex rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
+            >
+              Continue to payment workflow
+            </Link>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   const { data: hostels } = await supabase
     .from("hostels")
     .select("*")

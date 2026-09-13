@@ -47,7 +47,7 @@ export default async function PaymentsPage({
   const { data: reservations } = await supabase
     .from("reservations")
     .select(
-      "id, status, room_price, room:room_id(room_number, room_type, hostel:hostel_id(name)), payment:payments(id, payment_status, amount_expected, payment_reference, payment_receipt_path, rejection_reason, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number))"
+      "id, status, room_price, room:room_id(room_number, room_type, hostel:hostel_id(name)), payment:payments(id, payment_status, payment_receipt_status, amount_expected, payment_reference, payment_receipt_path, rejection_reason, payment_account:payment_account_id(bank_name, account_name, account_number), receipt:payment_receipts(receipt_number))"
     )
     .eq("student_profile_id", profile.id)
     .order("created_at", { ascending: false });
@@ -160,39 +160,46 @@ export default async function PaymentsPage({
                         </p>
                       )}
 
-                      <div className="mt-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4">
-                        <h3 className="font-semibold">Payment Receipt</h3>
-                        <p className="mt-1 text-sm text-[#b8b8b8]">
-                          Upload a PDF, JPG, or PNG receipt up to 5MB.
+                      {payment.payment_status !== "confirmed" ? (
+                        <p className="mt-6 text-sm text-[#b8b8b8]">
+                          Receipt not yet required. Upload it after your payment is accepted.
                         </p>
-                        {payment.payment_receipt_path && (
-                          <p className="mt-3 text-sm text-[#7ef1c6]">
-                            A payment receipt is currently uploaded.
+                      ) : !receipt ? (
+                        <p className="mt-6 text-sm text-[#b8b8b8]">
+                          Your payment was accepted. The official receipt is not yet available.
+                        </p>
+                      ) : (
+                        <div className="mt-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4">
+                          <h3 className="font-semibold">Receipt Verification</h3>
+                          <p className="mt-1 text-sm text-[#b8b8b8]">
+                            Download the official Arafims receipt, then upload it for manager verification.
                           </p>
-                        )}
-                        <form
-                          action="/api/payments/receipt"
-                          method="post"
-                          encType="multipart/form-data"
-                          className="mt-4 space-y-3"
-                        >
-                          <input type="hidden" name="paymentId" value={payment.id} />
-                          <input
-                            required
-                            name="paymentReceipt"
-                            type="file"
-                            accept="application/pdf,image/jpeg,image/png"
-                            className="block w-full text-sm text-[#b8b8b8]"
-                          />
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              type="submit"
-                              className="rounded-lg border border-[#d4a574]/60 px-4 py-2 text-sm font-semibold text-[#f5d5a4] transition-colors hover:bg-[#d4a574]/10"
+                          {payment.payment_receipt_status === "required" && (
+                            <p className="mt-3 text-sm text-[#f5d5a4]">
+                              Receipt Verification Required
+                            </p>
+                          )}
+                          {payment.payment_receipt_status === "submitted" && (
+                            <p className="mt-3 text-sm text-[#f5d5a4]">
+                              Receipt submitted / awaiting manager review
+                            </p>
+                          )}
+                          {payment.payment_receipt_status === "approved" && (
+                            <p className="mt-3 text-sm text-[#7ef1c6]">Receipt approved</p>
+                          )}
+                          {payment.payment_receipt_status === "rejected" && (
+                            <p className="mt-3 text-sm text-red-300">
+                              Receipt rejected. Upload again.
+                            </p>
+                          )}
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <Link
+                              href={`/api/payments/${payment.id}/receipt`}
+                              target="_blank"
+                              className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
                             >
-                              {payment.payment_receipt_path
-                                ? "Replace payment receipt"
-                                : "Upload payment receipt"}
-                            </button>
+                              Download Receipt
+                            </Link>
                             {payment.payment_receipt_path && (
                               <Link
                                 href={`/api/payments/${payment.id}/uploaded-receipt`}
@@ -203,8 +210,33 @@ export default async function PaymentsPage({
                               </Link>
                             )}
                           </div>
-                        </form>
-                      </div>
+                          {["required", "rejected"].includes(payment.payment_receipt_status) && (
+                            <form
+                              action="/api/payments/receipt"
+                              method="post"
+                              encType="multipart/form-data"
+                              className="mt-4 space-y-3"
+                            >
+                              <input type="hidden" name="paymentId" value={payment.id} />
+                              <input
+                                required
+                                name="paymentReceipt"
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png"
+                                className="block w-full text-sm text-[#b8b8b8]"
+                              />
+                              <button
+                                type="submit"
+                                className="rounded-lg border border-[#d4a574]/60 px-4 py-2 text-sm font-semibold text-[#f5d5a4] transition-colors hover:bg-[#d4a574]/10"
+                              >
+                                {payment.payment_receipt_status === "rejected"
+                                  ? "Replace payment receipt"
+                                  : "Upload payment receipt"}
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      )}
 
                       {payment.payment_status === "payment_pending" ||
                       payment.payment_status === "rejected" ? (
@@ -244,19 +276,6 @@ export default async function PaymentsPage({
                         <p className="mt-6 text-sm text-[#f5d5a4]">
                           Payment is only confirmed after manager verification.
                         </p>
-                      ) : payment.payment_status === "confirmed" && receipt ? (
-                        <div className="mt-6 flex flex-wrap items-center gap-3">
-                          <p className="text-sm text-[#7ef1c6]">
-                            Payment confirmed · Receipt {receipt.receipt_number}
-                          </p>
-                          <Link
-                            href={`/api/payments/${payment.id}/receipt`}
-                            target="_blank"
-                            className="rounded-lg bg-[#10a574] px-4 py-2 text-sm font-semibold text-[#0f0f0f]"
-                          >
-                            Download Receipt
-                          </Link>
-                        </div>
                       ) : null}
                     </>
                   )}

@@ -337,12 +337,13 @@ export function SignUpForm() {
 
       {studentType === "returning" && (
         <FormFileInput
-          label="School ID (Optional)"
+          label="School ID"
           name="school_id"
           accept=".pdf,.jpg,.jpeg,.png"
           error={errors.school_id}
           helperText="Upload your school ID (PDF, JPG, or PNG)"
           maxSize={5242880}
+          required
         />
       )}
 
